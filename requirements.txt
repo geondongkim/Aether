@@ -3,3 +3,5 @@ playwright>=1.41.0
 playwright-stealth>=1.0.6
 asyncio
 aiohttp
+curl_cffi
+browserforge

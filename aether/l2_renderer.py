@@ -1,7 +1,8 @@
 import asyncio
 from typing import Dict, Any, List
 from playwright.async_api import async_playwright
-from playwright_stealth import stealth_async
+from playwright_stealth import Stealth
+
 
 class L2Renderer:
     """
@@ -40,7 +41,7 @@ class L2Renderer:
             page = await context.new_page()
             
             # Stealth 모드 적용 (playwright-stealth)
-            await stealth_async(page)
+            await Stealth().apply_stealth_async(page)
             
             # 리소스 필터링: 불필요한 리소스 차단 로직 (최적화)
             await page.route("**/*", self._block_unnecessary_resources)

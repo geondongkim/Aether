@@ -11,23 +11,22 @@ class L1Scanner:
     """
     
     def __init__(self):
-        # Scrapling의 Fetcher 인스턴스 (AutoMatch HTTP 클라이언트)
-        self.fetcher = Fetcher(auto_match=True)
+        # Scrapling의 Fetcher 인스턴스
+        self.fetcher = Fetcher()
 
     async def fetch(self, url: str) -> Dict[str, Any]:
         """
         비동기적으로 대상 URL의 정적 HTML을 가져옵니다.
         """
         try:
-            # Scrapling Fetcher를 통해 요청 수행 (Stealth 헤더 자동 생성)
+            # Scrapling Fetcher를 통해 요청 수행
             response = self.fetcher.get(url)
             
-            # TODO: 비동기 지원을 위해 Scrapling AsyncFetcher가 있다면 변경 필요
-            # 현재 기본 예시로는 응답 객체를 반환
-            
             # Scrapling Response 객체에서 text, cookies 등 추출
-            html_content = response.text
-            cookies = self.fetcher.cookies  # 요청 후 획득한 세션/쿠키 추출
+            # Scrapling 0.4.x 버전에서는 body가 bytes 형태로 원본 HTML 제공
+            html_content = response.body.decode('utf-8', errors='ignore') if hasattr(response, 'body') else ""
+            cookies = getattr(response, "cookies", {}) # 가져올 수 없으면 빈 딕셔너리로 대체
+
             
             # 응답 유효성 및 JS 필요 여부 검사
             needs_js = self._is_js_required(html_content)
