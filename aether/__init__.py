@@ -1,4 +1,4 @@
 """
-Aether - Hybrid Web Scraping Engine
+Aether - 하이브리드 웹 스크래핑 엔진
 """
 __version__ = "0.1.0"
