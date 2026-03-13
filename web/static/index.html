@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aether 웹 스크래퍼</title>
+  <style>
+    /* ── 기본 리셋 & 변수 ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #4f8ef7;
+      --accent-hover: #6ba3ff;
+      --l1-color: #22c55e;
+      --l2-color: #f97316;
+      --error-color: #ef4444;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --mono: 'Cascadia Code', 'Consolas', monospace;
+      --radius: 10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 4rem;
+    }
+
+    /* ── 헤더 ── */
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    header h1 span { color: var(--accent); }
+    header p {
+      margin-top: 0.4rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* ── 메인 컨테이너 ── */
+    .container { width: 100%; max-width: 960px; }
+
+    /* ── 입력 영역 ── */
+    .input-row {
+      display: flex;
+      gap: 0.6rem;
+      margin-bottom: 1.4rem;
+    }
+    .input-row input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-row input:focus { border-color: var(--accent); }
+    .input-row input::placeholder { color: var(--text-muted); }
+
+    .btn-scrape {
+      padding: 0.75rem 1.6rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+      white-space: nowrap;
+    }
+    .btn-scrape:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-scrape:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── 로딩 ── */
+    #loading {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 2.5rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── 에러 배너 ── */
+    #error-banner {
+      display: none;
+      background: rgba(239,68,68,0.12);
+      border: 1px solid var(--error-color);
+      border-radius: var(--radius);
+      padding: 0.8rem 1rem;
+      color: var(--error-color);
+      font-size: 0.88rem;
+      margin-bottom: 1rem;
+    }
+
+    /* ── 결과 패널 ── */
+    #result-panel { display: none; }
+
+    .meta-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .badge.l1 { background: rgba(34,197,94,0.15); color: var(--l1-color); border: 1px solid var(--l1-color); }
+    .badge.l2 { background: rgba(249,115,22,0.15); color: var(--l2-color); border: 1px solid var(--l2-color); }
+    .badge.status { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); font-weight: 600; }
+
+    .meta-url {
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 500px;
+    }
+
+    /* ── 탭 ── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1.5px solid var(--border);
+      margin-bottom: 0;
+    }
+    .tab-btn {
+      padding: 0.55rem 1.2rem;
+      background: transparent;
+      border: none;
+      border-bottom: 2.5px solid transparent;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      margin-bottom: -1.5px;
+    }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn:hover:not(.active) { color: var(--text); }
+
+    /* ── 탭 콘텐츠 ── */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* HTML 원문 탭 */
+    #tab-source {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 var(--radius) var(--radius);
+      padding: 1rem;
+      position: relative;
+    }
+    #tab-source pre {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      line-height: 1.6;
+      color: #a8b4c8;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    /* 복사 버튼 */
+    .copy-btn {
+      position: absolute;
+      top: 0.7rem;
+      right: 0.7rem;
+      padding: 0.3rem 0.8rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .copy-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    /* 미리보기 탭 */
+    #tab-preview {
+      border: 1.5px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 var(--radius) var(--radius);
+      overflow: hidden;
+    }
+    #preview-iframe {
+      width: 100%;
+      height: 520px;
+      border: none;
+      background: #fff;
+      display: block;
+    }
+    .preview-notice {
+      padding: 0.5rem 1rem;
+      background: var(--surface2);
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    /* ── 스크롤바 스타일링 ── */
+    pre::-webkit-scrollbar { width: 6px; }
+    pre::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── 반응형 ── */
+    @media (max-width: 600px) {
+      .input-row { flex-direction: column; }
+      .meta-url { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🌬️ <span>Aether</span> 웹 스크래퍼</h1>
+    <p>하이브리드 스크래핑 엔진 · L1(Scrapling) → L2(Playwright) 자동 전환</p>
+  </header>
+
+  <div class="container">
+
+    <!-- 입력 영역 -->
+    <div class="input-row">
+      <input
+        id="url-input"
+        type="url"
+        placeholder="https://example.com"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button id="scrape-btn" class="btn-scrape" onclick="startScrape()">스크래핑 시작</button>
+    </div>
+
+    <!-- 에러 배너 -->
+    <div id="error-banner"></div>
+
+    <!-- 로딩 -->
+    <div id="loading">
+      <div class="spinner"></div>
+      <span id="loading-msg">L1 스캐너(Scrapling) 요청 중...</span>
+    </div>
+
+    <!-- 결과 패널 -->
+    <div id="result-panel">
+      <div class="meta-bar">
+        <span id="engine-badge" class="badge l1">L1</span>
+        <span id="status-badge" class="badge status">200</span>
+        <span id="meta-url" class="meta-url"></span>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('source', this)">HTML 원문</button>
+        <button class="tab-btn" onclick="switchTab('preview', this)">렌더링 미리보기</button>
+      </div>
+
+      <!-- HTML 원문 탭 -->
+      <div id="tab-source" class="tab-content active">
+        <button class="copy-btn" onclick="copyHtml()">복사</button>
+        <pre id="html-output"></pre>
+      </div>
+
+      <!-- 렌더링 미리보기 탭 -->
+      <div id="tab-preview" class="tab-content">
+        <iframe
+          id="preview-iframe"
+          sandbox="allow-same-origin allow-forms"
+          title="렌더링 미리보기"
+        ></iframe>
+        <p class="preview-notice">
+          ⚠️ 미리보기는 정적 렌더링만 지원합니다 (JavaScript 실행 비활성화 · 보안 sandbox 적용)
+        </p>
+      </div>
+    </div><!-- /result-panel -->
+
+  </div><!-- /container -->
+
+  <script>
+    const urlInput   = document.getElementById('url-input');
+    const scrapeBtn  = document.getElementById('scrape-btn');
+    const loading    = document.getElementById('loading');
+    const loadingMsg = document.getElementById('loading-msg');
+    const errorBanner = document.getElementById('error-banner');
+    const resultPanel = document.getElementById('result-panel');
+
+    // Enter 키 지원
+    urlInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') startScrape();
+    });
+
+    async function startScrape() {
+      const url = urlInput.value.trim();
+      if (!url) { showError('URL을 입력해 주세요.'); return; }
+
+      // UI 초기화
+      hideError();
+      showLoading(true);
+      resultPanel.style.display = 'none';
+      scrapeBtn.disabled = true;
+
+      // 로딩 메시지 순환 (L2 전환 시 수 초 소요 안내)
+      const msgs = [
+        'L1 스캐너(Scrapling) 요청 중...',
+        'HTML 분석 중 · JS 필요 여부 판별 중...',
+        'L2 Playwright 렌더러로 전환 중...',
+        '동적 페이지 렌더링 대기 중... (최대 60초)',
+      ];
+      let msgIdx = 0;
+      const msgTimer = setInterval(() => {
+        msgIdx = (msgIdx + 1) % msgs.length;
+        loadingMsg.textContent = msgs[msgIdx];
+      }, 3500);
+
+      try {
+        const res = await fetch('/scrape', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+
+        clearInterval(msgTimer);
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+          throw new Error(errData.detail || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        if (!data.success) {
+          throw new Error(data.error || '스크래핑에 실패했습니다.');
+        }
+
+        renderResult(data);
+      } catch (e) {
+        clearInterval(msgTimer);
+        showError(e.message);
+      } finally {
+        showLoading(false);
+        scrapeBtn.disabled = false;
+      }
+    }
+
+    function renderResult(data) {
+      // 엔진 배지
+      const badge = document.getElementById('engine-badge');
+      badge.textContent = data.engine || '?';
+      badge.className = 'badge ' + (data.engine === 'L2' ? 'l2' : 'l1');
+
+      // 상태 코드 배지
+      document.getElementById('status-badge').textContent = `HTTP ${data.status_code ?? '--'}`;
+
+      // URL
+      document.getElementById('meta-url').textContent = data.url;
+
+      // HTML 원문
+      document.getElementById('html-output').textContent = data.html || '';
+
+      // iframe 미리보기 (srcdoc 방식)
+      const iframe = document.getElementById('preview-iframe');
+      iframe.srcdoc = data.html || '';
+
+      // 탭 초기화 (원문 탭으로)
+      switchTab('source', document.querySelector('.tab-btn'));
+
+      resultPanel.style.display = 'block';
+    }
+
+    function switchTab(name, btn) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    async function copyHtml() {
+      const text = document.getElementById('html-output').textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        const btn = document.querySelector('.copy-btn');
+        btn.textContent = '복사됨 ✓';
+        setTimeout(() => btn.textContent = '복사', 2000);
+      } catch { /* clipboard API 미지원 환경 무시 */ }
+    }
+
+    function showLoading(on) {
+      loading.style.display = on ? 'flex' : 'none';
+      if (on) loadingMsg.textContent = 'L1 스캐너(Scrapling) 요청 중...';
+    }
+
+    function showError(msg) {
+      errorBanner.textContent = '오류: ' + msg;
+      errorBanner.style.display = 'block';
+    }
+
+    function hideError() {
+      errorBanner.style.display = 'none';
+    }
+  </script>
+</body>
+</html>
